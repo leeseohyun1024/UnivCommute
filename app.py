@@ -3,6 +3,11 @@ import pandas as pd
 import sqlite3
 import plotly.express as px
 
+# --- 1. 페이지 설정 및 제목 ---
+st.set_page_config(page_title="서울시 통학러 대시보드", layout="wide")
+st.title("🎓 대학생 통학 지옥 탈출 리포트")
+st.markdown("매학기, 통학에 지친 대학생들을 위해, 서울시 대학 주변의 버스와 지하철 혼잡도를 분석하여 최적의 등교 시간을 찾아봅니다.")
+
 # --- 데이터베이스 연결 함수 ---
 def run_query(query):
     with sqlite3.connect("통학러.db") as conn:
