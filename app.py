@@ -100,49 +100,45 @@ with col2:
     st.write("① **고원형 그래프**: 8시부터 9시 30분까지 혼잡도가 유지되는 역은 상습 정체 구간으로, 1교시 등교가 매우 힘든 대학입니다.")
     st.write("② **급경사형 그래프**: 9시에 혼잡도가 폭발하는 대학은 9시 수업 집중도가 높으므로 지각 위험이 큽니다.")
 
-# --- [차트 3] 골든타임 분석 (정규화 버전) ---
-st.header("3. ⏰ 수단별 등교 골든타임 추이 비교")
-st.markdown("> 버스(인원수)와 지하철(%)의 단위가 다르므로, 각 수단의 최대치를 기준으로 상대적 혼잡도를 비교합니다.")
+# --- [차트 3] 버스 등교 골든타임 분석 ---
+st.header("3. ⏰ 버스 등교 골든타임 분석")
+st.markdown("> 대학가 주변 버스 정류장의 시간대별 하차 인원을 분석하여 가장 여유로운 등교 시간을 제안합니다.")
 
+# SQL: 지하철을 제외하고 버스 데이터만 추출
 query3 = """
-SELECT '지하철' AS "교통수단", 
-       AVG("8시00분") AS "08시", AVG("10시00분") AS "10시", 
-       AVG("12시00분") AS "12시", AVG("14시00분") AS "14시", 
-       AVG("16시00분") AS "16시", AVG("18시00분") AS "18시"
-FROM "지하철혼잡도" 
-WHERE "요일구분" = '평일' AND "출발역" IN (SELECT DISTINCT SUBSTR("학교명", 1, 2) FROM "서울시대학")
-UNION ALL
-SELECT '버스' AS "교통수단", 
-       AVG("8시하차총승객수") AS "08시", AVG("10시하차총승객수") AS "10시",
-       AVG("12시하차총승객수") AS "12시", AVG("14시하차총승객수") AS "14시",
-       AVG("16시하차총승객수") AS "16시", AVG("18시하차총승객수") AS "18시"
+SELECT 
+    '버스' AS "교통수단", 
+    AVG("8시하차총승객수") AS "08시", 
+    AVG("10시하차총승객수") AS "10시",
+    AVG("12시하차총승객수") AS "12시", 
+    AVG("14시하차총승객수") AS "14시",
+    AVG("16시하차총승객수") AS "16시", 
+    AVG("18시하차총승객수") AS "18시"
 FROM "버스정류장" 
 WHERE "버스정류장 위치(자치구)" IN (SELECT DISTINCT "행정구" FROM "서울시대학")
 """
 df3 = run_query(query3)
 
-# --- 데이터 정규화(Normalization) 처리 ---
-# 각 행(수단)별로 최대값으로 나누어 0~1 사이 값으로 변환합니다.
-time_cols = ["08시", "10시", "12시", "14시", "16시", "18시"]
-df3_values = df3[time_cols]
-df3_norm = df3_values.div(df3_values.max(axis=1), axis=0) # 행별 최대값으로 나누기
-df3_norm["교통수단"] = df3["교통수단"]
+# 데이터 재구조화 (Melt)
+df_bus_only = df3.melt(id_vars='교통수단', var_name='시간', value_name='하차인원')
 
-# 시각화를 위한 Melt
-df3_melted = df3_norm.melt(id_vars='교통수단', var_name='시간', value_name='상대적혼잡도')
+# 시각화: 버스 단독 영역 차트
+fig_bus = px.area(df_bus_only, x="시간", y="하차인원", 
+                 title="🚌 대학가 버스 시간대별 평균 하차 인원 추이",
+                 color_discrete_sequence=['#ff7f0e'], # 버스 느낌의 오렌지색
+                 markers=True)
 
-# 한 그래프에 겹쳐서 그리기
-fig3 = px.line(df3_melted, x="시간", y="상대적혼잡도", color="교통수단",
-              line_shape="spline", markers=True,
-              title="버스 vs 지하철 시간대별 상대적 혼잡도 추이 (Max=1.0)",
-              labels={"상대적혼잡도": "상대적 혼잡 수준 (0~1)"})
+# 그래프 레이아웃 깔끔하게 정리
+fig_bus.update_layout(
+    xaxis_title="시간대",
+    yaxis_title="평균 하차 승객 수 (명)",
+    showlegend=False
+)
 
-# Y축 범위를 0~1.1로 고정하여 가독성 확보
-fig3.update_yaxes(range=[0, 1.1])
-st.plotly_chart(fig3, use_container_width=True)
+st.plotly_chart(fig_bus, use_container_width=True)
 
-st.subheader("🔍 인사이트")
-st.write("① **피크 타임 일치 여부**: 지하철과 버스의 정점이 일치하는 08시~09시 사이가 가장 피함이 권장되는 '레드 타임'입니다.")
-st.write("② **수단별 회복 탄력성**: 지하철은 오전 피크 이후 급격히 쾌적해지는 반면, 버스는 오후 시간대에도 상대적으로 높은 유동 인구를 유지합니다.")
+st.subheader("🔍 버스 통학 인사이트")
+st.write("① **오전 피크와 하교 피크**: 08시 등교 시간대와 18시 하교 시간대에 하차 인원이 집중됩니다. 특히 대학가 특성상 저녁 시간대 유입 인원도 상당함을 알 수 있습니다.")
+st.write("② **오후의 여유**: 11시부터 15시 사이는 하차 인원이 눈에 띄게 줄어드는 구간입니다. 이 시간대 수업을 활용하면 보다 쾌적한 이동이 가능합니다.")
 
 st.info("💡 모든 데이터는 SQLite 데이터베이스를 기반으로 실시간 쿼리된 결과입니다. 매학기, 통학으로 고통받는 모든 대학생을 응원합니다!")
