@@ -31,7 +31,7 @@ ORDER BY 버스하차총합 DESC
 df1 = run_query(query1)
 
 with col_left:
-    st.header("1. 🚌구별 버스 혼잡도")
+    st.header("1. 🚌 버스 혼잡도")
     fig1 = px.bar(df1, x="자치구", y="버스하차총합", color="대학교수",
                   text_auto='.2s', title="자치구별 대학 수 대비 버스 하차량")
     st.plotly_chart(fig1, use_container_width=True)
@@ -51,7 +51,7 @@ ORDER BY 평균지하철혼잡도 DESC
 df_subway_gu = run_query(query_subway_gu)
 
 with col_right:
-    st.header("2. 🚇구별 지하철 혼잡도")
+    st.header("2. 🚇 지하철 혼잡도")
     fig_subway_gu = px.bar(df_subway_gu, x="자치구", y="평균지하철혼잡도", 
                           color="대학교 수", color_continuous_scale="Viridis",
                           title="자치구별 지하철 혼잡도 및 대학 밀집도")
