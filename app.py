@@ -104,7 +104,7 @@ with col2:
 st.header("3. ⏰ 버스 등교 골든타임 분석")
 st.markdown("> 대학가 주변 버스 정류장의 시간대별 하차 인원을 분석하여 가장 여유로운 등교 시간을 제안합니다.")
 
-# SQL: 지하철을 제외하고 버스 데이터만 추출
+# SQL: 버스 데이터 추출
 query3 = """
 SELECT 
     '버스' AS "교통수단", 
@@ -122,23 +122,21 @@ df3 = run_query(query3)
 # 데이터 재구조화 (Melt)
 df_bus_only = df3.melt(id_vars='교통수단', var_name='시간', value_name='하차인원')
 
-# 시각화: 버스 단독 영역 차트
-fig_bus = px.area(df_bus_only, x="시간", y="하차인원", 
-                 title="🚌 대학가 버스 시간대별 평균 하차 인원 추이",
-                 color_discrete_sequence=['#ff7f0e'], # 버스 느낌의 오렌지색
-                 markers=True)
+# 레이아웃 분할: 왼쪽 2(그래프), 오른쪽 1(인사이트)
+col1, col2 = st.columns([2, 1])
 
-# 그래프 레이아웃 깔끔하게 정리
-fig_bus.update_layout(
-    xaxis_title="시간대",
-    yaxis_title="평균 하차 승객 수 (명)",
-    showlegend=False
-)
+with col1:
+    # 시각화: 버스 단독 영역 차트
+    fig_bus = px.area(df_bus_only, x="시간", y="하차인원", 
+                     title="🚌 대학가 버스 시간대별 평균 하차 인원 추이",
+                     color_discrete_sequence=['#ff7f0e'], 
+                     markers=True)
+    
+    fig_bus.update_layout(xaxis_title="시간대", yaxis_title="평균 하차 승객 수 (명)", showlegend=False)
+    st.plotly_chart(fig_bus, use_container_width=True)
 
-st.plotly_chart(fig_bus, use_container_width=True)
-
-st.subheader("🔍 버스 통학 인사이트")
-st.write("① **오전 피크와 하교 피크**: 08시 등교 시간대와 18시 하교 시간대에 하차 인원이 집중됩니다. 특히 대학가 특성상 저녁 시간대 유입 인원도 상당함을 알 수 있습니다.")
-st.write("② **오후의 여유**: 11시부터 15시 사이는 하차 인원이 눈에 띄게 줄어드는 구간입니다. 이 시간대 수업을 활용하면 보다 쾌적한 이동이 가능합니다.")
-
+with col2:
+    st.subheader("🔍 버스 통학 인사이트")
+    st.write("① **등/하교 피크 뚜렷**: 08시와 18시에 하차 인원이 집중됩니다. 대학가 특성상 저녁 유입 인원도 많으므로 하교 시간대 정류장 혼잡에 주의해야 합니다.")
+    st.write("② **오후의 여유**: 11시부터 15시 사이는 하차 인원이 급격히 줄어듭니다. 이 시간대를 등교 시간으로 활용하면 훨씬 쾌적한 이동이 가능합니다.")
 st.info("💡 모든 데이터는 SQLite 데이터베이스를 기반으로 실시간 쿼리된 결과입니다. 매학기, 통학으로 고통받는 모든 대학생을 응원합니다!")
