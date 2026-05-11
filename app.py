@@ -31,7 +31,7 @@ ORDER BY 버스하차총합 DESC
 df1 = run_query(query1)
 
 with col_left:
-    st.header("1. 🚌 버스 자치구 리포트")
+    st.header("1. 🚌구별 버스 혼잡도")
     fig1 = px.bar(df1, x="자치구", y="버스하차총합", color="대학교수",
                   text_auto='.2s', title="자치구별 대학 수 대비 버스 하차량")
     st.plotly_chart(fig1, use_container_width=True)
@@ -40,7 +40,7 @@ with col_left:
 query_subway_gu = """
 SELECT 
     u."행정구" AS 자치구, 
-    COUNT(DISTINCT u."학교명") AS 대학교수,
+    COUNT(DISTINCT u."학교명") AS "대학교 수",
     AVG(s."9시00분") AS 평균지하철혼잡도
 FROM "서울시대학" u
 JOIN "지하철혼잡도" s ON (s."출발역" LIKE '%' || SUBSTR(u."학교명", 1, 2) || '%')
@@ -51,25 +51,21 @@ ORDER BY 평균지하철혼잡도 DESC
 df_subway_gu = run_query(query_subway_gu)
 
 with col_right:
-    st.header("2. 🚇 지하철 자치구 리포트")
+    st.header("2. 🚇구별 지하철 혼잡도")
     fig_subway_gu = px.bar(df_subway_gu, x="자치구", y="평균지하철혼잡도", 
-                          color="대학교수", color_continuous_scale="Viridis",
+                          color="대학교 수", color_continuous_scale="Viridis",
                           title="자치구별 지하철 혼잡도 및 대학 밀집도")
     st.plotly_chart(fig_subway_gu, use_container_width=True)
 
 # --- [섹션 B] 1&2번 통합 인사이트 및 SQL ---
-st.subheader("💡 자치구 분석 통합 인사이트 & 데이터 로직")
+st.subheader("🔍 인사이트")
 ins_col1, ins_col2 = st.columns([1.5, 1])
 
 with ins_col1:
     st.markdown("""
-    **[버스 분석]**
-    * **성북구/서대문구** 등 대학 밀집 지역은 버스 하차량이 압도적으로 높아 정류장 병목 현상이 심각합니다.
-    * **서초/관악/송파**는 대학 수 대비 하차량이 많아 주요 환승 거점으로 파악됩니다.
-    
-    **[지하철 분석]**
-    * **성북구, 은평구**는 대학가 역의 지하철 혼잡도가 매우 높습니다.
-    * 특히 **성북구**는 대학 수와 혼잡도 모두 최상위권으로, 4호선 등의 배차 간격 조정이 시급한 위험 지역입니다.
+    ①  **성북구/서대문구** 등 대학 밀집 지역은 버스 하차량과 지하철 혼잡도가 압도적으로 높아 병목 현상이 심각합니다.
+    ② 특히 **성북구**는 대학 수와 혼잡도 모두 최상위권입니다. 가장 붐비는 호선인, **4호선의 배차 간격 조정**이 시급합니다. 
+    ③ 버스 지표에서는 **서초/관악/송파**는 대학 수 대비 하차량이 많아 **주요 환승 거점**으로 파악됩니다.
     """)
 
 with ins_col2:
@@ -150,7 +146,7 @@ with col4_2:
     with st.expander("🛠️ 골든타임 데이터 SQL 확인", expanded=True):
         st.code(query3, language="sql")
     st.subheader("🔍 버스 통학 인사이트")
-    st.write("① **피크 타임**: 08시와 18시에 하차 인원이 집중됩니다. 퇴근길 버스 정류장 혼잡에 주의하세요.")
+    st.write("① **피크 타임**: 08시와 18시에 하차 인원이 집중됩니다. 대학교 특성상 저녁에도 붐빌 수 있으니, 퇴근길 버스 정류장 혼잡에 주의하세요.")
     st.write("② **골든 타임**: 10시~14시 사이는 하차 인원이 가장 적어 쾌적한 이동이 가능합니다.")
 
 st.info("👣 매학기, 통학으로 고통받는 모든 대학생을 응원합니다! 🚶‍♀️")
