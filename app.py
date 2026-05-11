@@ -38,12 +38,26 @@ with col_left:
 
 # --- 2번 차트: 지하철 자치구 분석 ---
 query_subway_gu = """
+query_subway_gu = """
 SELECT 
     u."행정구" AS 자치구, 
-    COUNT(DISTINCT u."학교명") AS "대학교 수",
+    COUNT(DISTINCT u."학교명") AS 대학교수,
     AVG(s."9시00분") AS 평균지하철혼잡도
 FROM "서울시대학" u
-JOIN "지하철혼잡도" s ON (s."출발역" LIKE '%' || SUBSTR(u."학교명", 1, 2) || '%')
+JOIN "지하철혼잡도" s ON (
+    s."출발역" LIKE '%' || SUBSTR(u."학교명", 1, 2) || '%'
+    -- 성북구 및 주요 누락 대학 수동 매칭 강화
+    OR (u."학교명" LIKE '국민대%' AND s."출발역" IN ('길음', '성신여대입구'))
+    OR (u."학교명" LIKE '서경대%' AND s."출발역" = '성신여대입구')
+    OR (u."학교명" LIKE '숙명여자%' AND s."출발역" = '숙대입구')
+    OR (u."학교명" LIKE '이화여자%' AND s."출발역" = '이대')
+    OR (u."학교명" LIKE '연세대%' AND s."출발역" = '신촌')
+    OR (u."학교명" LIKE '중앙대%' AND s."출발역" = '흑석')
+    OR (u."학교명" LIKE '경희대%' AND s."출발역" = '회기')
+    OR (u."학교명" LIKE '한국외국어%' AND s."출발역" = '외대앞')
+    OR (u."학교명" LIKE '건국대%' AND s."출발역" = '건대입구')
+    OR (u."학교명" LIKE '동국대%' AND s."출발역" = '동대입구')
+)
 WHERE s."요일구분" = '평일'
 GROUP BY u."행정구"
 ORDER BY 평균지하철혼잡도 DESC
@@ -145,7 +159,7 @@ with col4_1:
 with col4_2:
     with st.expander("🛠️ 골든타임 데이터 SQL 확인", expanded=True):
         st.code(query3, language="sql")
-    st.subheader("🔍 버스 통학 인사이트")
+    st.subheader("🔍 인사이트")
     st.write("① **피크 타임**: 08시와 18시에 하차 인원이 집중됩니다. 대학교 특성상 저녁에도 붐빌 수 있으니, 퇴근길 버스 정류장 혼잡에 주의하세요.")
     st.write("② **골든 타임**: 10시~14시 사이는 하차 인원이 가장 적어 쾌적한 이동이 가능합니다.")
 
