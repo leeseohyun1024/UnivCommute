@@ -36,8 +36,7 @@ with col_left:
                   text_auto='.2s', title="자치구별 대학 수 대비 버스 하차량")
     st.plotly_chart(fig1, use_container_width=True)
 
-# --- 2번 차트: 지하철 자치구 분석 ---
-query_subway_gu = """
+# --- 2번 차트: 지하철 자치구 분석 (오류 수정됨) ---
 query_subway_gu = """
 SELECT 
     u."행정구" AS 자치구, 
@@ -46,7 +45,6 @@ SELECT
 FROM "서울시대학" u
 JOIN "지하철혼잡도" s ON (
     s."출발역" LIKE '%' || SUBSTR(u."학교명", 1, 2) || '%'
-    -- 성북구 및 주요 누락 대학 수동 매칭 강화
     OR (u."학교명" LIKE '국민대%' AND s."출발역" IN ('길음', '성신여대입구'))
     OR (u."학교명" LIKE '서경대%' AND s."출발역" = '성신여대입구')
     OR (u."학교명" LIKE '숙명여자%' AND s."출발역" = '숙대입구')
@@ -66,8 +64,9 @@ df_subway_gu = run_query(query_subway_gu)
 
 with col_right:
     st.header("2. 🚇 지하철 혼잡도")
+    # color="대학교수"로 수정 (띄어쓰기 제거)
     fig_subway_gu = px.bar(df_subway_gu, x="자치구", y="평균지하철혼잡도", 
-                          color="대학교 수", color_continuous_scale="Viridis",
+                          color="대학교수", color_continuous_scale="Viridis",
                           title="자치구별 지하철 혼잡도 및 대학 밀집도")
     st.plotly_chart(fig_subway_gu, use_container_width=True)
 
