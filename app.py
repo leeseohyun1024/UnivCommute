@@ -54,7 +54,7 @@ col_left, col_right = st.columns(2)
 with col_left:
     st.header("1. 🚌 버스 혼잡도")
     fig1 = px.bar(df1.sort_values("버스하차총합", ascending=False), 
-                  x="자치구", y="버스하차총합", color="대학교수",
+                  x="자치구", y="버스하차총합", color="대학 수",
                   text_auto='.2s', title="자치구별 대학 수 대비 버스 하차량",
                   color_continuous_scale="Viridis")
     st.plotly_chart(fig1, use_container_width=True)
@@ -62,7 +62,7 @@ with col_left:
 with col_right:
     st.header("2. 🚇 지하철 혼잡도")
     fig2 = px.bar(df2.sort_values("평균지하철혼잡도", ascending=False), 
-                  x="자치구", y="평균지하철혼잡도", color="대학교수",
+                  x="자치구", y="평균지하철혼잡도", color="대학 수",
                   title="자치구별 지하철 혼잡도 및 대학 밀집도",
                   color_continuous_scale="Viridis")
     st.plotly_chart(fig2, use_container_width=True)
@@ -73,12 +73,15 @@ ins_col1, ins_col2 = st.columns([1.5, 1])
 
 with ins_col1:
     st.markdown("""
-    ① **데이터 정합성**: 모든 차트의 대학교 수는 '서울시대학' 원본 데이터를 기준으로 통일되었습니다. (성북구 6개 등)
-    ② **혼잡도 분석**: 성북구는 대학 수와 혼잡도가 모두 높아 가장 밀집된 교육 중심지임을 보여줍니다.
+    ① **관악구**와 **서초구**는 압도적인 버스 하차량을 기록하고 있습니다. 특히 관악구는 서울대학교라는 부지가 넓은 대학이 존재하며, 지형 특성상 캠퍼스 내부로 진입하기 위한 버스 수요가 많은 것으로 파악됩니다.
+    ② 버스 하차량과 지하철 혼잡도에 상위권을 차지하고 있는 **관악구(서울대)**와 **성북구(국민대, 서경대 등)**는 고지대나 산지에 위치한 캠퍼스가 많습니다. 이는 지하철역에서 내린 뒤 반드시 버스를 타야 하는 구조를 만듭니다.
+    ③ **서대문구와 마포구** 역시 대학 밀집도가 높지만 버스 하차량 순위는 관악구보다 낮습니다. 이는 해당 지역의 대학들이 상대적으로 지하철 접근성이 더 좋거나, 주거지와 학교가 더 인접해 있을 가능성을 시사합니다.
+     지하철 혼잡도에서는 성북구가 1위를 차지하고 있으며 대학이 가장 많이 밀집된 곳인만큼 유동인구가 많다고 추청할 수 있습니다. 또한, 성북구를 지나는 4호선은 가장 유동인구가 많은 지하철이기 때문에 대학 밀집도와 더불어 이동하는 일반 시민도 많을 것으로 추정됩니다.
+    
     """)
 
 with ins_col2:
-    with st.expander("🛠️ 데이터 추출 쿼리 확인"):
+    with st.expander("🛠️ SQL문"):
         st.code(query_bus, language="sql")
         st.code(query_subway, language="sql")
 
@@ -120,10 +123,10 @@ with col3_1:
                     markers=True, title="대학별 등교 시간대 혼잡도 추이")
     st.plotly_chart(fig2, use_container_width=True)
 with col3_2:
-    with st.expander("🛠️ 대학별 데이터 SQL 확인", expanded=True):
+    with st.expander("🛠️ SQL문", expanded=True):
         st.code(query2, language="sql")
     st.subheader("🔍 인사이트")
-    st.write("① 8시 정점 이후 9시까지 완만해지나, 대학별로 9시 이후 반등하는 곳이 있으므로 개별 수치 확인이 필수입니다.")
+    st.write("① 8시 정점 이후 9시까지 완만해지나, 대학별로 9시 이후 반등하는 곳이 있으므로 **개별 수치 확인을 하여 등교하는 것이 필수적**입니다.")
     st.write("② **동국대학교**는 아침 시간대 혼잡도가 높으므로, 추세가 확실히 꺾이는 10시 이후 등교를 추천합니다.")
 
 # --- [차트 4] 버스 등교 골든타임 분석 ---
@@ -152,7 +155,7 @@ with col4_1:
                      color_discrete_sequence=['#ff7f0e'], markers=True)
     st.plotly_chart(fig_bus, use_container_width=True)
 with col4_2:
-    with st.expander("🛠️ 골든타임 데이터 SQL 확인", expanded=True):
+    with st.expander("🛠️ SQL문", expanded=True):
         st.code(query3, language="sql")
     st.subheader("🔍 인사이트")
     st.write("① **피크 타임**: 08시와 18시에 하차 인원이 집중됩니다. 대학교 특성상 저녁에도 붐빌 수 있으니, 퇴근길 버스 정류장 혼잡에 주의하세요.")
