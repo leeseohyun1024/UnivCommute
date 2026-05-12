@@ -66,7 +66,7 @@ with ins_col1:
         "또한, 성북구를 지나는 4호선은 가장 유동인구가 많은 지하철이기 때문에 대학 밀집도와 더불어 이동하는 일반 시민도 많을 것으로 추정됩니다."
     )
 with ins_col2:
-    with st.expander("🛠️ 데이터 추출 쿼리 확인"):
+    with st.expander("🛠️ SQL문"):
         st.code(query_bus, language="sql")
         st.code(query_subway, language="sql")
 
