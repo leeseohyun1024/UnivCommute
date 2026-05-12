@@ -14,7 +14,6 @@ def run_query(query):
         return pd.read_sql(query, conn)
 
 # --- [데이터 준비: 자치구별 대학 수 일치 로직] ---
-# SQL 예약어나 특수문자 에러를 피하기 위해 쿼리를 가장 표준적인 형태로 작성했습니다.
 df_univ_base = run_query('SELECT 행정구 AS 자치구, COUNT(DISTINCT 학교명) AS "대학 수" FROM 서울시대학 GROUP BY 행정구')
 
 df_bus_data = run_query("""
@@ -40,7 +39,6 @@ df_subway_data = run_query("""
 st.divider()
 col_left, col_right = st.columns(2)
 
-# 1번 버스 차트
 df1 = pd.merge(df_univ_base, df_bus_data, on="자치구", how="left").fillna(0)
 with col_left:
     st.header("1. 🚌 버스 혼잡도")
@@ -50,7 +48,6 @@ with col_left:
                   color_continuous_scale="Viridis")
     st.plotly_chart(fig1, use_container_width=True)
 
-# 2번 지하철 차트
 df2 = pd.merge(df_univ_base, df_subway_data, on="자치구", how="left").fillna(0)
 with col_right:
     st.header("2. 🚇 지하철 혼잡도")
@@ -65,8 +62,36 @@ st.subheader("🔍 인사이트")
 ins_col1, ins_col2 = st.columns([1.5, 1])
 
 with ins_col1:
+    # 따옴표가 확실히 열리고 닫히도록 수정했습니다.
     st.markdown("""
     ① **관악구**와 **서초구**는 압도적인 버스 하차량을 기록하고 있습니다. 특히 관악구는 서울대학교라는 부지가 넓은 대학이 존재하며, 지형 특성상 캠퍼스 내부로 진입하기 위한 버스 수요가 많은 것으로 파악됩니다.
     ② 버스 하차량과 지하철 혼잡도에 상위권을 차지하고 있는 **관악구(서울대)**와 **성북구(국민대, 서경대 등)**는 고지대나 산지에 위치한 캠퍼스가 많습니다. 이는 지하철역에서 내린 뒤 반드시 버스를 타야 하는 구조를 만듭니다.
     ③ **서대문구와 마포구** 역시 대학 밀집도가 높지만 버스 하차량 순위는 관악구보다 낮습니다. 이는 해당 지역의 대학들이 상대적으로 지하철 접근성이 더 좋거나, 주거지와 학교가 더 인접해 있을 가능성을 시사합니다.
-    ④ 지하철
+    ④ 지하철 혼잡도에서는 **성북구**가 1위를 차지하고 있으며 대학이 가장 많이 밀집된 곳인만큼 유동인구가 많다고 추청할 수 있습니다. 또한, 성북구를 지나는 4호선은 가장 유동인구가 많은 지하철이기 때문에 대학 밀집도와 더불어 이동하는 일반 시민도 많을 것으로 추정됩니다.
+    """)
+
+with ins_col2:
+    with st.expander("🛠️ 자치구 분석 데이터 로직 확인"):
+        st.write("모든 자치구 대학 수는 '서울시대학' 테이블의 실제 행정구 기준으로 집계되었습니다.")
+        st.code("SELECT 행정구, COUNT(DISTINCT 학교명) FROM 서울시대학", language="sql")
+
+# --- 3번 & 4번 차트 ---
+st.divider()
+st.header("3. ⏳ 대학별 혼잡도 지속 시간 비교")
+
+query2 = """
+SELECT u.학교명, s.출발역 AS 인근역, 
+s."8시00분", s."8시30분", s."9시00분", s."9시30분", s."10시00분", s."10시30분"
+FROM 서울시대학 u 
+JOIN 지하철혼잡도 s ON (
+    s.출발역 LIKE '%' || SUBSTR(u.학교명, 1, 2) || '%'
+    OR (u.학교명 LIKE '숙명여자%' AND s.출발역 = '숙대입구')
+    OR (u.학교명 LIKE '이화여자%' AND s.출발역 = '이대')
+    OR (u.학교명 LIKE '연세대%' AND s.출발역 = '신촌')
+    OR (u.학교명 LIKE '중앙대%' AND s.출발역 = '흑석')
+    OR (u.학교명 LIKE '경희대%' AND s.출발역 = '회기')
+    OR (u.학교명 LIKE '한국외국어%' AND s.출발역 = '외대앞')
+    OR (u.학교명 LIKE '건국대%' AND s.출발역 = '건대입구')
+    OR (u.학교명 LIKE '동국대%' AND s.출발역 = '동대입구')
+)
+WHERE s.요일구분
