@@ -13,78 +13,87 @@ def run_query(query):
     with sqlite3.connect("통학러.db") as conn:
         return pd.read_sql(query, conn)
 
-# --- [섹션 A] 1번 & 2번 차트 데이터 준비 ---
+# --- [섹션 A] 1번 & 2번 차트 양옆 배치 ---
 st.divider()
-
-# 1. 자치구별 대학교 수 기준 데이터 (컬럼명을 '대학 수'로 고정)
-query_univ_count = 'SELECT "행정구" AS 자치구, COUNT(DISTINCT "학교명") AS "대학 수" FROM "서울시대학" GROUP BY "행정구"'
-df_univ_base = run_query(query_univ_count)
-
-# 2. 버스 하차량 데이터
-query_bus = """
-SELECT b."버스정류장 위치(자치구)" AS 자치구, SUM(b."8시하차총승객수" + b."9시하차총승객수") AS 버스하차총합
-FROM "버스정류장" b 
-GROUP BY b."버스정류장 위치(자치구)"
-"""
-df_bus_data = run_query(query_bus)
-
-# 3. 지하철 혼잡도 데이터
-query_subway = """
-SELECT u."행정구" AS 자치구, AVG(s."9시00분") AS 평균지하철혼잡도
-FROM "서울시대학" u
-JOIN "지하철혼잡도" s ON (
-    s."출발역" LIKE '%' || SUBSTR(u."학교명", 1, 2) || '%'
-    OR (u."학교명" LIKE '국민대%' AND s."출발역" = '길음')
-    OR (u."학교명" LIKE '서경대%' AND s."출발역" = '성신여대입구')
-    OR (u."학교명" LIKE '숙명여자%' AND s."출발역" = '숙대입구')
-    OR (u."학교명" LIKE '동국대%' AND s."출발역" = '동대입구')
-)
-WHERE s."요일구분" = '평일'
-GROUP BY u."행정구"
-"""
-df_subway_data = run_query(query_subway)
-
-# --- 데이터 결합 (Pandas Merge) ---
-df1 = pd.merge(df_univ_base, df_bus_data, on="자치구", how="left").fillna(0)
-df2 = pd.merge(df_univ_base, df_subway_data, on="자치구", how="left").fillna(0)
-
-# --- 차트 그리기 ---
 col_left, col_right = st.columns(2)
+
+# --- 1번 차트: 버스 혼잡도 (기준 데이터) ---
+query1 = """
+SELECT 
+    u."행정구" AS 자치구, 
+    COUNT(DISTINCT u."학교명") AS 대학교수,
+    SUM(b."8시하차총승객수" + b."9시하차총승객수") AS 버스하차총합
+FROM "서울시대학" u
+JOIN "버스정류장" b ON u."행정구" = b."버스정류장 위치(자치구)"
+GROUP BY u."행정구"
+ORDER BY 버스하차총합 DESC
+"""
+df1 = run_query(query1)
 
 with col_left:
     st.header("1. 🚌 버스 혼잡도")
-    # color 기준을 "대학 수"로 설정
-    fig1 = px.bar(df1.sort_values("버스하차총합", ascending=False), 
-                  x="자치구", y="버스하차총합", color="대학 수",
+    fig1 = px.bar(df1, x="자치구", y="버스하차총합", color="대학교수",
                   text_auto='.2s', title="자치구별 대학 수 대비 버스 하차량",
                   color_continuous_scale="Viridis")
     st.plotly_chart(fig1, use_container_width=True)
 
+# --- 2번 차트: 지하철 혼잡도 (대학 수 고정 로직) ---
+# 이 쿼리는 모든 대학을 먼저 불러온 뒤, 가능한 지하철역 혼잡도를 매칭하여 대학 수가 누락되지 않게 합니다.
+query_subway_gu = """
+SELECT 
+    base.자치구, 
+    base.대학교수,
+    AVG(sub.평균혼잡도) AS 평균지하철혼잡도
+FROM (
+    SELECT "행정구" AS 자치구, COUNT(DISTINCT "학교명") AS 대학교수 
+    FROM "서울시대학" GROUP BY "행정구"
+) base
+LEFT JOIN (
+    SELECT u."행정구", AVG(s."9시00분") AS 평균혼잡도
+    FROM "서울시대학" u
+    JOIN "지하철혼잡도" s ON (
+        s."출발역" LIKE '%' || SUBSTR(u."학교명", 1, 2) || '%'
+        OR (u."학교명" LIKE '국민대%' AND s."출발역" = '길음')
+        OR (u."학교명" LIKE '서경대%' AND s."출발역" = '성신여대입구')
+        OR (u."학교명" LIKE '숙명여자%' AND s."출발역" = '숙대입구')
+        OR (u."학교명" LIKE '동국대%' AND s."출발역" = '동대입구')
+    )
+    WHERE s."요일구분" = '평일'
+    GROUP BY u."행정구"
+) sub ON base.자치구 = sub.자치구
+GROUP BY base.자치구
+ORDER BY 평균지하철혼잡도 DESC
+"""
+df_subway_gu = run_query(query_subway_gu)
+
 with col_right:
     st.header("2. 🚇 지하철 혼잡도")
-    # color 기준을 "대학 수"로 설정
-    fig2 = px.bar(df2.sort_values("평균지하철혼잡도", ascending=False), 
-                  x="자치구", y="평균지하철혼잡도", color="대학 수",
-                  title="자치구별 지하철 혼잡도 및 대학 밀집도",
-                  color_continuous_scale="Viridis")
-    st.plotly_chart(fig2, use_container_width=True)
+    fig_subway_gu = px.bar(df_subway_gu, x="자치구", y="평균지하철혼잡도", 
+                          color="대학교수", color_continuous_scale="Viridis",
+                          title="자치구별 지하철 혼잡도 및 대학 밀집도")
+    st.plotly_chart(fig_subway_gu, use_container_width=True)
 
-# --- [섹션 B] 인사이트 & SQL ---
+# --- [섹션 B] 1&2번 통합 인사이트 및 SQL ---
 st.subheader("🔍 인사이트")
 ins_col1, ins_col2 = st.columns([1.5, 1])
 
 with ins_col1:
-    st.markdown(""" 
+    st.markdown("""
     ① **관악구**와 **서초구**는 압도적인 버스 하차량을 기록하고 있습니다. 특히 관악구는 서울대학교라는 부지가 넓은 대학이 존재하며, 지형 특성상 캠퍼스 내부로 진입하기 위한 버스 수요가 많은 것으로 파악됩니다.
     ② 버스 하차량과 지하철 혼잡도에 상위권을 차지하고 있는 **관악구(서울대)**와 **성북구(국민대, 서경대 등)**는 고지대나 산지에 위치한 캠퍼스가 많습니다. 이는 지하철역에서 내린 뒤 반드시 버스를 타야 하는 구조를 만듭니다.
     ③ **서대문구와 마포구** 역시 대학 밀집도가 높지만 버스 하차량 순위는 관악구보다 낮습니다. 이는 해당 지역의 대학들이 상대적으로 지하철 접근성이 더 좋거나, 주거지와 학교가 더 인접해 있을 가능성을 시사합니다.
     ④ 지하철 혼잡도에서는 **성북구**가 1위를 차지하고 있으며 대학이 가장 많이 밀집된 곳인만큼 유동인구가 많다고 추청할 수 있습니다. 또한, 성북구를 지나는 4호선은 가장 유동인구가 많은 지하철이기 때문에 대학 밀집도와 더불어 이동하는 일반 시민도 많을 것으로 추정됩니다.
-    """)
+
 
 with ins_col2:
-    with st.expander("🛠️ SQL문"):
-        st.code(query_bus, language="sql")
-        st.code(query_subway, language="sql")
+    with st.expander("🛠️ 자치구 분석 SQL 확인"):
+        st.write("**버스 데이터 쿼리:**")
+        st.code(query1, language="sql")
+        st.write("**지하철 데이터 쿼리(대학수 고정형):**")
+        st.code(query_subway_gu, language="sql")
+
+# --- 3, 4번 차트는 기존과 동일 (생략/유지) ---
+# (사용자님의 기존 코드 3번, 4번 부분을 이 뒤에 붙여넣으시면 됩니다)
 
 # --- 차트 3 & 4 (기존 로직 유지) ---
 st.divider()
