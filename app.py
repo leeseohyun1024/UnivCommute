@@ -16,7 +16,7 @@ def run_query(query):
 # --- [섹션 A] 1번 & 2번 차트 데이터 준비 ---
 st.divider()
 
-# 1. 자치구별 대학교 수 기준 데이터
+# 1. 자치구별 대학교 수 기준 데이터 (모든 차트의 공통 기준)
 query_univ_count = "SELECT 행정구 AS 자치구, COUNT(DISTINCT 학교명) AS 대학교수 FROM 서울시대학 GROUP BY 행정구"
 df_univ_base = run_query(query_univ_count)
 
@@ -44,7 +44,7 @@ GROUP BY u."행정구"
 """
 df_subway_data = run_query(query_subway)
 
-# --- 데이터 결합 ---
+# --- 데이터 결합 (Pandas Merge로 안전하게 합치기) ---
 df1 = pd.merge(df_univ_base, df_bus_data, on="자치구", how="left").fillna(0)
 df2 = pd.merge(df_univ_base, df_subway_data, on="자치구", how="left").fillna(0)
 
@@ -53,22 +53,18 @@ col_left, col_right = st.columns(2)
 
 with col_left:
     st.header("1. 🚌 버스 혼잡도")
-    # color="대학 수" -> "대학교수"로 수정
     fig1 = px.bar(df1.sort_values("버스하차총합", ascending=False), 
                   x="자치구", y="버스하차총합", color="대학교수",
                   text_auto='.2s', title="자치구별 대학 수 대비 버스 하차량",
-                  color_continuous_scale="Viridis",
-                  labels={"대학교수": "대학교 수"}) # 범례 이름만 예쁘게 표시
+                  color_continuous_scale="Viridis")
     st.plotly_chart(fig1, use_container_width=True)
 
 with col_right:
     st.header("2. 🚇 지하철 혼잡도")
-    # color="대학 수" -> "대학교수"로 수정
     fig2 = px.bar(df2.sort_values("평균지하철혼잡도", ascending=False), 
                   x="자치구", y="평균지하철혼잡도", color="대학교수",
                   title="자치구별 지하철 혼잡도 및 대학 밀집도",
-                  color_continuous_scale="Viridis",
-                  labels={"대학교수": "대학교 수"})
+                  color_continuous_scale="Viridis")
     st.plotly_chart(fig2, use_container_width=True)
 
 # --- [섹션 B] 인사이트 & SQL ---
@@ -77,13 +73,12 @@ ins_col1, ins_col2 = st.columns([1.5, 1])
 
 with ins_col1:
     st.markdown("""
-    ① **관악구**와 **서초구**는 압도적인 버스 하차량을 기록하고 있습니다. 특히 관악구는 서울대학교라는 부지가 넓은 대학이 존재하며, 지형 특성상 캠퍼스 내부로 진입하기 위한 버스 수요가 많은 것으로 파악됩니다.
-    ② 버스 하차량과 지하철 혼잡도에 상위권을 차지하고 있는 **관악구(서울대)**와 **성북구(국민대, 서경대 등)**는 고지대나 산지에 위치한 캠퍼스가 많습니다. 이는 지하철역에서 내린 뒤 반드시 버스를 타야 하는 구조를 만듭니다.
-    ③ **서대문구와 마포구** 역시 대학 밀집도가 높지만 버스 하차량 순위는 관악구보다 낮습니다. 이는 해당 지역의 대학들이 상대적으로 지하철 접근성이 더 좋거나, 주거지와 학교가 더 인접해 있을 가능성을 시사합니다.
+    ① **데이터 정합성**: 모든 차트의 대학교 수는 '서울시대학' 원본 데이터를 기준으로 통일되었습니다. (성북구 6개 등)
+    ② **혼잡도 분석**: 성북구는 대학 수와 혼잡도가 모두 높아 가장 밀집된 교육 중심지임을 보여줍니다.
     """)
 
 with ins_col2:
-    with st.expander("🛠️ SQL문"):
+    with st.expander("🛠️ 데이터 추출 쿼리 확인"):
         st.code(query_bus, language="sql")
         st.code(query_subway, language="sql")
 
