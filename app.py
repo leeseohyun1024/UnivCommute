@@ -29,7 +29,7 @@ st.divider()
 query_univ_count = 'SELECT "행정구" AS 자치구, COUNT(DISTINCT "학교명") AS 대학교수 FROM "서울시대학" GROUP BY "행정구"'
 df_univ_base = run_query(query_univ_count)
 
-# 2. 버스 하차량 (쿼리를 한 줄로 연결하여 SyntaxError 방지)
+# 2. 버스 하차량
 query_bus = 'SELECT "버스정류장 위치(자치구)" AS 자치구, SUM("8시하차총승객수" + "9시하차총승객수") AS 버스하차총합 FROM "버스정류장" GROUP BY "버스정류장 위치(자치구)"'
 df_bus_data = run_query(query_bus)
 
@@ -75,3 +75,26 @@ if not df_time.empty:
         fig_line = px.line(df_melted, x="시간대", y="혼잡도", color="학교명", markers=True, title="대학별 등교 시간대 혼잡도 추이")
         st.plotly_chart(fig_line, use_container_width=True)
     with c2:
+        with st.expander("🛠️ SQL문"):
+            st.code(query_time, language="sql")
+        st.write("① 아침 8시가 가장 혼잡하며 이후 서서히 낮아집니다.")
+
+# --- 4. 버스 등교 골든타임 분석 ---
+st.divider()
+st.header("4. ⏰ 버스 등교 골든타임 분석")
+
+query_golden = 'SELECT "버스" AS "교통수단", AVG("8시하차총승객수") AS "08시", AVG("10시하차총승객수") AS "10시", AVG("12시하차총승객수") AS "12시", AVG("14시하차총승객수") AS "14시", AVG("16시하차총승객수") AS "16시", AVG("18시하차총승객수") AS "18시" FROM "버스정류장" WHERE "버스정류장 위치(자치구)" IN (SELECT DISTINCT "행정구" FROM "서울시대학")'
+df_golden = run_query(query_golden)
+
+if not df_golden.empty:
+    df_golden_melt = df_golden.melt(id_vars="교통수단", var_name="시간", value_name="하차인원")
+    c3, c4 = st.columns([2, 1])
+    with c3:
+        fig_area = px.area(df_golden_melt, x="시간", y="하차인원", title="🚌 대학가 버스 시간대별 평균 하차 인원 추이", color_discrete_sequence=["#ff7f0e"], markers=True)
+        st.plotly_chart(fig_area, use_container_width=True)
+    with c4:
+        with st.expander("🛠️ SQL문"):
+            st.code(query_golden, language="sql")
+        st.write("① **10시~14시** 사이가 하차 인원이 적어 가장 쾌적하게 등교할 수 있는 '골든타임'입니다.")
+
+st.info("👣 매학기, 통학으로 고통받는 모든 대학생을 응원합니다!")
