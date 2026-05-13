@@ -34,22 +34,30 @@ df_univ_base = run_query(query_univ_count)
 query_bus = 'SELECT "버스정류장 위치(자치구)" AS 자치구, SUM("8시하차총승객수" + "9시하차총승객수") AS 버스하차총합 FROM "버스정류장" GROUP BY "버스정류장 위치(자치구)"'
 df_bus_data = run_query(query_bus)
 
-# --- [섹션 A] 2번 지하철 혼잡도 쿼리 수정 (강서구 강화 및 LEFT JOIN 적용) ---
+# --- [섹션 A] 2번 지하철 혼잡도 쿼리 (전체 자치구 강제 노출 버전) ---
 query_subway = '''
-SELECT u."행정구" AS 자치구, AVG(s."9시00분") AS 평균지하철혼잡도
+SELECT 
+    u."행정구" AS 자치구, 
+    IFNULL(AVG(s."9시00분"), 0) AS 평균지하철혼잡도
 FROM "서울시대학" u
 LEFT JOIN "지하철혼잡도" s ON (
-    /* 1. 기본 매칭: 학교명 앞 2글자가 역 명칭에 포함될 때 */
+    /* 1. 기본 이름 매칭 */
     s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%"
     
-    /* 2. 강서구 특화 매칭 (강서대, KC대, 폴리텍 등) */
-    OR (u."학교명" LIKE "%강서대%" AND s."출발역" LIKE "%화곡%")
+    /* 2. 종로구: 성균관대(혜화), 배화여대(경복궁), 가톨릭대(혜화/동대문) */
+    OR (u."학교명" LIKE "%성균관%" AND s."출발역" LIKE "%혜화%")
+    OR (u."학교명" LIKE "%배화%" AND s."출발역" LIKE "%경복궁%")
+    OR (u."학교명" LIKE "%가톨릭%" AND s."출발역" IN ("혜화", "동대문"))
+    
+    /* 3. 송파구: 한국체대(올림픽공원) */
+    OR (u."학교명" LIKE "%한국체육%" AND s."출발역" LIKE "%올림픽공원%")
+    
+    /* 4. 강서구: 강서대/KC대(화곡) */
+    OR (u."학교명" LIKE "%강서%" AND s."출발역" LIKE "%화곡%")
     OR (u."학교명" LIKE "%KC%" AND s."출발역" LIKE "%화곡%")
     OR (u."학교명" LIKE "%서울기독%" AND s."출발역" LIKE "%화곡%")
-    OR (u."학교명" LIKE "%폴리텍%" AND s."출발역" LIKE "%우장산%")
-    OR (u."학교명" LIKE "%폴리텍%" AND s."출발역" LIKE "%발산%")
     
-    /* 3. 기타 누락 구(도봉, 구로, 마포 등) 보완 */
+    /* 5. 도봉구/구로구/기타 */
     OR (u."학교명" LIKE "%덕성%" AND s."출발역" LIKE "%쌍문%")
     OR (u."학교명" LIKE "%동양미래%" AND s."출발역" LIKE "%구일%")
     OR (u."학교명" LIKE "%성공회%" AND s."출발역" LIKE "%온수%")
@@ -63,7 +71,6 @@ LEFT JOIN "지하철혼잡도" s ON (
 WHERE (s."요일구분" = "평일" OR s."요일구분" IS NULL)
 GROUP BY u."행정구"
 '''
-
 df_subway_data = run_query(query_subway)
 
 # 데이터 병합 및 시각화
