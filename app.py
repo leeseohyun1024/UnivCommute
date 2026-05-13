@@ -34,23 +34,25 @@ df_univ_base = run_query(query_univ_count)
 query_bus = 'SELECT "버스정류장 위치(자치구)" AS 자치구, SUM("8시하차총승객수" + "9시하차총승객수") AS 버스하차총합 FROM "버스정류장" GROUP BY "버스정류장 위치(자치구)"'
 df_bus_data = run_query(query_bus)
 
-# --- [섹션 A] 2번 지하철 혼잡도 쿼리 (강서, 구로 매칭 강화 버전) ---
+# --- [섹션 A] 2번 지하철 혼잡도 쿼리 (도봉구 및 누락 자치구 완벽 보완) ---
 query_subway = '''
 SELECT u."행정구" AS 자치구, AVG(s."9시00분") AS 평균지하철혼잡도
 FROM "서울시대학" u
 JOIN "지하철혼잡도" s ON (
-    /* 1. 이름 앞 두 글자가 역 이름에 포함되는 경우 (기본) */
+    /* 1. 일반적인 이름 매칭 (첫 두 글자) */
     s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%"
     
-    /* 2. 구로구: 동양미래대(구일역), 성공회대(온수역) */
+    /* 2. 도봉구 예외 처리 (덕성여대) */
+    OR (u."학교명" LIKE "%덕성%" AND s."출발역" LIKE "%쌍문%")
+    OR (u."학교명" LIKE "%덕성%" AND s."출발역" LIKE "%수유%")
+    
+    /* 3. 구로구/강서구 예외 처리 */
     OR (u."학교명" LIKE "%동양%" AND s."출발역" LIKE "%구일%")
     OR (u."학교명" LIKE "%성공회%" AND s."출발역" LIKE "%온수%")
-    
-    /* 3. 강서구: KC대(서울기독대 - 화곡역) */
     OR (u."학교명" LIKE "%서울기독%" AND s."출발역" LIKE "%화곡%")
     OR (u."학교명" LIKE "%KC%" AND s."출발역" LIKE "%화곡%")
     
-    /* 4. 기존 예외 처리 유지 */
+    /* 4. 기타 주요 대학 매칭 보강 */
     OR (u."학교명" LIKE "%국민%" AND s."출발역" LIKE "%길음%")
     OR (u."학교명" LIKE "%서경%" AND s."출발역" LIKE "%성신여대%")
     OR (u."학교명" LIKE "%숙명%" AND s."출발역" LIKE "%숙대입구%")
@@ -64,6 +66,7 @@ JOIN "지하철혼잡도" s ON (
 WHERE s."요일구분" = "평일"
 GROUP BY u."행정구"
 '''
+
 df_subway_data = run_query(query_subway)
 
 # 데이터 병합 및 시각화
@@ -110,18 +113,17 @@ st.header("3. ⏳ 대학별 혼잡도 지속 시간 비교")
 query_time = '''
 SELECT u."학교명", s."출발역" AS "인근역", s."8시00분", s."8시30분", s."9시00분", s."9시30분", s."10시00분", s."10시30분"
 FROM "서울시대학" u
-JOIN "지하철혼잡도" s ON (
-    s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%"
-    OR (u."학교명" LIKE "숙명여자%" AND s."출발역" = "숙대입구")
-    OR (u."학교명" LIKE "이화여자%" AND s."출발역" = "이대")
-    OR (u."학교명" LIKE "연세대%" AND s."출발역" = "신촌")
-    OR (u."학교명" LIKE "중앙대%" AND s."출발역" = "흑석")
-    OR (u."학교명" LIKE "경희대%" AND s."출발역" = "회기")
-    OR (u."학교명" LIKE "한국외국어%" AND s."출발역" = "외대앞")
-    OR (u."학교명" LIKE "건국대%" AND s."출발역" = "건대입구")
-    OR (u."학교명" LIKE "세종대%" AND s."출발역" = "어린이대공원")
-    OR (u."학교명" LIKE "동국대%" AND s."출발역" = "동대입구")
-    OR (u."학교명" LIKE "홍익대%" AND s."출발역" = "홍대입구")
+JOIN "지하철혼잡도" s ON (s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%"
+    OR (u."학교명" LIKE "%덕성%" AND s."출발역" LIKE "%쌍문%")
+    OR (u."학교명" LIKE "%숙명%" AND s."출발역" LIKE "%숙대입구%")
+    OR (u."학교명" LIKE "%이화%" AND s."출발역" LIKE "%이대%")
+    OR (u."학교명" LIKE "%연세%" AND s."출발역" LIKE "%신촌%")
+    OR (u."학교명" LIKE "%중앙%" AND s."출발역" LIKE "%흑석%")
+    OR (u."학교명" LIKE "%경희%" AND s."출발역" LIKE "%회기%")
+    OR (u."학교명" LIKE "%한국외국어%" AND s."출발역" LIKE "%외대앞%")
+    OR (u."학교명" LIKE "%건국%" AND s."출발역" LIKE "%건대입구%")
+    OR (u."학교명" LIKE "%동국%" AND s."출발역" LIKE "%동대입구%")
+    OR (u."학교명" LIKE "%홍익%" AND s."출발역" LIKE "%홍대입구%")
 )
 WHERE s."요일구분" = "평일"
 GROUP BY u."학교명"
