@@ -34,23 +34,32 @@ df_univ_base = run_query(query_univ_count)
 query_bus = 'SELECT "버스정류장 위치(자치구)" AS 자치구, SUM("8시하차총승객수" + "9시하차총승객수") AS 버스하차총합 FROM "버스정류장" GROUP BY "버스정류장 위치(자치구)"'
 df_bus_data = run_query(query_bus)
 
-# 3. 지하철 혼잡도 (가장 중요한 수정 부분)
+# --- [섹션 A] 2번 지하철 혼잡도 쿼리 (강서, 구로 매칭 강화 버전) ---
 query_subway = '''
 SELECT u."행정구" AS 자치구, AVG(s."9시00분") AS 평균지하철혼잡도
 FROM "서울시대학" u
 JOIN "지하철혼잡도" s ON (
+    /* 1. 이름 앞 두 글자가 역 이름에 포함되는 경우 (기본) */
     s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%"
-    OR (u."학교명" LIKE "국민대%" AND s."출발역" = "길음")
-    OR (u."학교명" LIKE "서경대%" AND s."출발역" = "성신여대입구")
-    OR (u."학교명" LIKE "숙명여자%" AND s."출발역" = "숙대입구")
-    OR (u."학교명" LIKE "동국대%" AND s."출발역" = "동대입구")
-    OR (u."학교명" LIKE "홍익대%" AND s."출발역" = "홍대입구")
-    OR (u."학교명" LIKE "서강대%" AND s."출발역" = "대흥")
-    OR (u."학교명" LIKE "건국대%" AND s."출발역" = "건대입구")
-    OR (u."학교명" LIKE "세종대%" AND s."출발역" = "어린이대공원")
-    OR (u."학교명" LIKE "KC대%" AND s."출발역" = "화곡")
-    OR (u."학교명" LIKE "동양미래%" AND s."출발역" = "구일")
-    OR (u."학교명" LIKE "한국체육%" AND s."출발역" = "올림픽공원")
+    
+    /* 2. 구로구: 동양미래대(구일역), 성공회대(온수역) */
+    OR (u."학교명" LIKE "%동양%" AND s."출발역" LIKE "%구일%")
+    OR (u."학교명" LIKE "%성공회%" AND s."출발역" LIKE "%온수%")
+    
+    /* 3. 강서구: KC대(서울기독대 - 화곡역) */
+    OR (u."학교명" LIKE "%서울기독%" AND s."출발역" LIKE "%화곡%")
+    OR (u."학교명" LIKE "%KC%" AND s."출발역" LIKE "%화곡%")
+    
+    /* 4. 기존 예외 처리 유지 */
+    OR (u."학교명" LIKE "%국민%" AND s."출발역" LIKE "%길음%")
+    OR (u."학교명" LIKE "%서경%" AND s."출발역" LIKE "%성신여대%")
+    OR (u."학교명" LIKE "%숙명%" AND s."출발역" LIKE "%숙대입구%")
+    OR (u."학교명" LIKE "%동국%" AND s."출발역" LIKE "%동대입구%")
+    OR (u."학교명" LIKE "%홍익%" AND s."출발역" LIKE "%홍대입구%")
+    OR (u."학교명" LIKE "%서강%" AND s."출발역" LIKE "%대흥%")
+    OR (u."학교명" LIKE "%건국%" AND s."출발역" LIKE "%건대입구%")
+    OR (u."학교명" LIKE "%세종%" AND s."출발역" LIKE "%어린이대공원%")
+    OR (u."학교명" LIKE "%한국체육%" AND s."출발역" LIKE "%올림픽공원%")
 )
 WHERE s."요일구분" = "평일"
 GROUP BY u."행정구"
