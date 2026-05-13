@@ -33,8 +33,25 @@ df_univ_base = run_query(query_univ_count)
 query_bus = 'SELECT "버스정류장 위치(자치구)" AS 자치구, SUM("8시하차총승객수" + "9시하차총승객수") AS 버스하차총합 FROM "버스정류장" GROUP BY "버스정류장 위치(자치구)"'
 df_bus_data = run_query(query_bus)
 
-# 3. 지하철 혼잡도
-query_subway = 'SELECT u."행정구" AS 자치구, AVG(s."9시00분") AS 평균지하철혼잡도 FROM "서울시대학" u JOIN "지하철혼잡도" s ON (s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%" OR (u."학교명" LIKE "국민대%" AND s."출발역" = "길음") OR (u."학교명" LIKE "서경대%" AND s."출발역" = "성신여대입구") OR (u."학교명" LIKE "숙명여자%" AND s."출발역" = "숙대입구") OR (u."학교명" LIKE "동국대%" AND s."출발역" = "동대입구")) WHERE s."요일구분" = "평일" GROUP BY u."행정구"'
+# 3. 지하철 혼잡도 (구로, 마포, 송파 데이터 누락 방지를 위해 매칭 조건 추가)
+query_subway = '''
+SELECT u."행정구" AS 자치구, AVG(s."9시00분") AS 평균지하철혼잡도 
+FROM "서울시대학" u 
+JOIN "지하철혼잡도" s ON (
+    s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%" 
+    OR (u."학교명" LIKE "국민대%" AND s."출발역" = "길음") 
+    OR (u."학교명" LIKE "서경대%" AND s."출발역" = "성신여대입구") 
+    OR (u."학교명" LIKE "숙명여자%" AND s."출발역" = "숙대입구") 
+    OR (u."학교명" LIKE "동국대%" AND s."출발역" = "동대입구")
+    OR (u."학교명" LIKE "홍익대%" AND s."출발역" = "홍대입구")  -- 마포구 추가
+    OR (u."학교명" LIKE "서강대%" AND s."출발역" = "대흥")      -- 마포구 추가
+    OR (u."학교명" LIKE "동양미래%" AND s."출발역" = "구일")    -- 구로구 추가
+    OR (u."학교명" LIKE "성공회%" AND s."출발역" = "온수")      -- 구로구 추가
+    OR (u."학교명" LIKE "한국체육%" AND s."출발역" = "올림픽공원") -- 송파구 추가
+) 
+WHERE s."요일구분" = "평일" 
+GROUP BY u."행정구"
+'''
 df_subway_data = run_query(query_subway)
 
 if not df_univ_base.empty:
@@ -49,16 +66,18 @@ if not df_univ_base.empty:
 
     with col_right:
         st.header("2. 🚇 지하철 혼잡도")
+        # 정렬 시 데이터가 있는 것들이 먼저 보이도록 설정
         fig2 = px.bar(df2.sort_values("평균지하철혼잡도", ascending=False), x="자치구", y="평균지하철혼잡도", color="대학교수", title="자치구별 지하철 혼잡도 및 대학 밀집도", color_continuous_scale="Viridis")
         st.plotly_chart(fig2, use_container_width=True)
 
+# --- 인사이트 (수정 없이 유지) ---
 st.subheader("🔍 인사이트")
 ins_col1, ins_col2 = st.columns([1.5, 1])
 with ins_col1:
     st.markdown(
         "① **관악구**와 **서초구**는 압도적인 버스 하차량을 기록하고 있습니다. "
         "특히 관악구는 서울대학교라는 부지가 넓은 대학이 존재하며, 지형 특성상 캠퍼스 내부로 진입하기 위한 버스 수요가 많은 것으로 파악됩니다.\n\n"
-        "② 버스 하차량과 지하철 혼잡도에 상위권을 차지하고 있는 관악구(서울대)와 성북구(국민대, 서경대 등)는 고지대나 산지에 위치한 캠퍼스가 많습니다. "
+        "② 버스 하차량과 지하철 혼잡도에 상위권을 차지하고 있는 **관악구(서울대)**와 **성북구(국민대, 서경대 등)**는 고지대나 산지에 위치한 캠퍼스가 많습니다. "
         "이는 지하철역에서 내린 뒤 반드시 버스를 타야 하는 구조를 만듭니다.\n\n"
         "③ **서대문구와 마포구** 역시 대학 밀집도가 높지만 버스 하차량 순위는 관악구보다 낮습니다. "
         "이는 해당 지역의 대학들이 상대적으로 지하철 접근성이 더 좋거나, 주거지와 학교가 더 인접해 있을 가능성을 시사합니다.\n\n"
@@ -66,7 +85,7 @@ with ins_col1:
         "또한, 성북구를 지나는 4호선은 가장 유동인구가 많은 지하철이기 때문에 대학 밀집도와 더불어 이동하는 일반 시민도 많을 것으로 추정됩니다."
     )
 with ins_col2:
-    with st.expander("🛠️ SQL문"):
+    with st.expander("🛠️ 데이터 추출 쿼리 확인"):
         st.code(query_bus, language="sql")
         st.code(query_subway, language="sql")
 
@@ -74,7 +93,25 @@ with ins_col2:
 st.divider()
 st.header("3. ⏳ 대학별 혼잡도 지속 시간 비교")
 
-query_time = 'SELECT u."학교명", s."출발역" AS "인근역", s."8시00분", s."8시30분", s."9시00분", s."9시30분", s."10시00분", s."10시30분" FROM "서울시대학" u JOIN "지하철혼잡도" s ON (s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%" OR (u."학교명" LIKE "숙명여자%" AND s."출발역" = "숙대입구") OR (u."학교명" LIKE "이화여자%" AND s."출발역" = "이대") OR (u."학교명" LIKE "연세대%" AND s."출발역" = "신촌") OR (u."학교명" LIKE "중앙대%" AND s."출발역" = "흑석") OR (u."학교명" LIKE "경희대%" AND s."출발역" = "회기") OR (u."학교명" LIKE "한국외국어%" AND s."출발역" = "외대앞") OR (u."학교명" LIKE "건국대%" AND s."출발역" = "건대입구") OR (u."학교명" LIKE "동국대%" AND s."출발역" = "동대입구")) WHERE s."요일구분" = "평일" GROUP BY u."학교명" ORDER BY u."학교명" ASC'
+query_time = '''
+SELECT u."학교명", s."출발역" AS "인근역", s."8시00분", s."8시30분", s."9시00분", s."9시30분", s."10시00분", s."10시30분" 
+FROM "서울시대학" u 
+JOIN "지하철혼잡도" s ON (
+    s."출발역" LIKE "%" || SUBSTR(u."학교명", 1, 2) || "%" 
+    OR (u."학교명" LIKE "숙명여자%" AND s."출발역" = "숙대입구") 
+    OR (u."학교명" LIKE "이화여자%" AND s."출발역" = "이대") 
+    OR (u."학교명" LIKE "연세대%" AND s."출발역" = "신촌") 
+    OR (u."학교명" LIKE "중앙대%" AND s."출발역" = "흑석") 
+    OR (u."학교명" LIKE "경희대%" AND s."출발역" = "회기") 
+    OR (u."학교명" LIKE "한국외국어%" AND s."출발역" = "외대앞") 
+    OR (u."학교명" LIKE "건국대%" AND s."출발역" = "건대입구") 
+    OR (u."학교명" LIKE "동국대%" AND s."출발역" = "동대입구")
+    OR (u."학교명" LIKE "홍익대%" AND s."출발역" = "홍대입구")
+) 
+WHERE s."요일구분" = "평일" 
+GROUP BY u."학교명" 
+ORDER BY u."학교명" ASC
+'''
 df_time = run_query(query_time)
 
 if not df_time.empty:
@@ -89,6 +126,7 @@ if not df_time.empty:
         st.write("① 8시 정점 이후 9시까지 완만해지나, 대학별로 등교 피크가 다르므로 실시간 확인이 필요합니다.")
         st.write("")
         st.write("② **동국대학교**는 오전 혼잡도가 특히 높으므로, 10시 이후 등교 시 가장 쾌적합니다.")
+
 
 # --- 4. 버스 등교 골든타임 분석 ---
 st.divider()
